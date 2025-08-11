@@ -1,377 +1,224 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PDF AudioBook Reader</title>
+    <!-- Basic styling (kept concise) -->
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .container {
-            background: white;
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            max-width: 500px;
-            width: 90%;
-            text-align: center;
-        }
-        
-        h1 {
-            color: #333;
-            margin-bottom: 30px;
-            font-size: 2.5em;
-        }
-        
-        .upload-area {
-            border: 3px dashed #667eea;
-            border-radius: 15px;
-            padding: 40px 20px;
-            margin: 20px 0;
-            background: #f8f9ff;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-        
-        .upload-area:hover {
-            border-color: #764ba2;
-            background: #f0f2ff;
-        }
-        
-        .upload-area.dragover {
-            border-color: #764ba2;
-            background: #e8ebff;
-        }
-        
-        .upload-icon {
-            font-size: 3em;
-            color: #667eea;
-            margin-bottom: 15px;
-        }
-        
-        input[type="file"] {
-            display: none;
-        }
-        
-        .upload-text {
-            color: #666;
-            font-size: 1.1em;
-            margin-bottom: 10px;
-        }
-        
-        .page-input {
-            margin: 20px 0;
-        }
-        
-        .page-input label {
-            display: block;
-            margin-bottom: 10px;
-            color: #333;
-            font-weight: bold;
-        }
-        
-        .page-input input, .page-input select {
-            padding: 10px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            width: 100%;
-            text-align: center;
-            font-size: 1em;
-        }
-        
-        .btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 25px;
-            font-size: 1.1em;
-            cursor: pointer;
-            margin: 10px;
-            transition: all 0.3s ease;
-            min-width: 120px;
-        }
-        
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-        
-        .btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-        
-        .btn-stop {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-        }
-        
-        .btn-stop:hover {
-            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
-        }
-        
-        .status {
-            margin: 20px 0;
-            padding: 15px;
-            border-radius: 10px;
-            font-weight: bold;
-        }
-        
-        .status.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        
-        .status.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        
-        .status.info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-        }
-        
-        .hidden {
-            display: none;
-        }
-        
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-right: 10px;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        /* --- Layout & Typography --- */
+        body { margin:0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", Arial, sans-serif; background: #f5f7fb; color:#222; display:flex; align-items:center; justify-content:center; min-height:100vh; }
+        .container { background:#fff; width:92%; max-width:520px; padding:40px 42px 46px; border-radius:18px; box-shadow:0 8px 32px rgba(0,0,0,0.08); }
+        h1 { font-size:1.9rem; font-weight:600; letter-spacing:.5px; margin:0 0 6px; }
+        .subtitle { font-size:.92rem; color:#555; margin:0 0 28px; }
+
+        /* --- Upload Area --- */
+        .upload-area { border:2px dashed #8aa0c5; border-radius:14px; padding:38px 22px; background:#fafbfe; text-align:center; transition:.25s; cursor:pointer; }
+        .upload-area:hover, .upload-area.dragover { background:#f0f5ff; border-color:#4d75b8; }
+        .upload-text { font-size:.95rem; color:#444; margin-bottom:6px; font-weight:500; }
+        .hint { font-size:.7rem; color:#7a8699; letter-spacing:.5px; text-transform:uppercase; }
+        input[type=file] { display:none; }
+
+        /* --- Form Inputs --- */
+        .field-group { margin:22px 0 0; text-align:left; }
+        .field-group label { display:block; font-size:.8rem; font-weight:600; color:#333; margin-bottom:8px; letter-spacing:.5px; text-transform:uppercase; }
+        .field-group input[type=number], .field-group select { width:100%; padding:11px 14px; font-size:.95rem; border:1.5px solid #c9d3e1; border-radius:10px; background:#fff; outline:none; transition:.2s; }
+        .field-group input:focus, .field-group select:focus { border-color:#4d75b8; box-shadow:0 0 0 3px rgba(77,117,184,.15); }
+
+        /* --- Buttons --- */
+        .actions { margin-top:26px; display:flex; gap:14px; flex-wrap:wrap; }
+        .btn { flex:1 1 auto; min-width:150px; position:relative; border:none; border-radius:28px; padding:14px 26px; font-size:.95rem; font-weight:600; letter-spacing:.5px; cursor:pointer; background:linear-gradient(135deg,#4d75b8,#2d4b7a); color:#fff; transition:.25s; box-shadow:0 4px 14px -2px rgba(77,117,184,.45); }
+        .btn:hover { transform:translateY(-2px); box-shadow:0 6px 18px -2px rgba(77,117,184,.5); }
+        .btn:disabled { background:#9fb2cc; cursor:not-allowed; transform:none; box-shadow:none; }
+        .btn-alt { background:linear-gradient(135deg,#b84545,#7d2020); box-shadow:0 4px 14px -2px rgba(184,69,69,.45); }
+        .btn-alt:hover { box-shadow:0 6px 18px -2px rgba(184,69,69,.55); }
+
+        /* --- Status Messages --- */
+        .status { margin:28px 0 8px; padding:14px 18px; border-radius:12px; font-size:.85rem; font-weight:600; letter-spacing:.4px; display:none; }
+        .status.info { background:#e6eef7; color:#2d4b7a; }
+        .status.success { background:#e4f5e9; color:#1d6a33; }
+        .status.error { background:#fdebec; color:#842029; }
+        .status.show { display:block; }
+
+        /* --- Footer / Meta --- */
+        .meta { margin-top:34px; font-size:.7rem; color:#607089; letter-spacing:.4px; line-height:1.4; text-align:center; }
+        .meta a { color:#4d75b8; text-decoration:none; }
+        .meta a:hover { text-decoration:underline; }
+
+        /* --- Loader Indicator --- */
+        .loading { width:18px; height:18px; border:3px solid rgba(255,255,255,.45); border-top:3px solid #fff; border-radius:50%; display:inline-block; animation:spin .9s linear infinite; vertical-align:middle; margin-right:10px; }
+        @keyframes spin { to { transform:rotate(360deg); } }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>📚 PDF AudioBook Reader</h1>
-        <p style="color: #666; margin-bottom: 30px;">Upload a PDF file and listen to it being read aloud!</p>
-        
-        <form id="uploadForm" enctype="multipart/form-data">
+        <!-- Header Section -->
+        <h1>PDF AudioBook Reader</h1>
+        <p class="subtitle">Upload a PDF document and listen to its content via synthesized speech.</p>
+
+        <!-- Upload & Controls Form -->
+        <form id="uploadForm" enctype="multipart/form-data" novalidate>
             <div class="upload-area" id="uploadArea">
-                <div class="upload-icon">📄</div>
-                <div class="upload-text">Click here or drag & drop your PDF file</div>
-                <div style="color: #999; font-size: 0.9em;">Maximum file size: 16MB</div>
-                <input type="file" id="fileInput" name="file" accept=".pdf">
+                <div class="upload-text" id="uploadText">Click to select or drag & drop a PDF file</div>
+                <div class="hint">Max 16 MB · PDF only</div>
+                <input type="file" id="fileInput" name="file" accept="application/pdf" />
             </div>
-            
-            <div class="page-input">
-                <label for="startPage">Start from page:</label>
-                <input type="number" id="startPage" name="start_page" value="1" min="1">
+
+            <div class="field-group">
+                <label for="startPage">Start Page</label>
+                <input type="number" id="startPage" name="start_page" value="1" min="1" />
             </div>
-            <div class="page-input">
-                <label for="voiceSelect">Voice:</label>
-                <select id="voiceSelect" name="voice_id" style="padding:10px;border:2px solid #ddd;border-radius:8px;">
-                    <option value="">Loading voices...</option>
-                </select>
+
+            <div class="actions">
+                <button type="submit" class="btn" id="uploadBtn">Start Reading</button>
+                <button type="button" class="btn" id="pauseBtn" style="display:none;">Pause</button>
+                <button type="button" class="btn" id="resumeBtn" style="display:none;">Resume</button>
+                <button type="button" class="btn btn-alt" id="stopBtn" style="display:none;">Stop</button>
             </div>
-            
-            <button type="submit" class="btn" id="uploadBtn">
-                🎵 Start Reading
-            </button>
         </form>
-        
-        <button class="btn btn-stop hidden" id="stopBtn">
-            ⏹️ Stop Reading
-        </button>
-        
-        <div id="status" class="status hidden"></div>
-        
-        <div style="margin-top: 30px; color: #342764; font-size: 0.9em;">
-            <p>📝 Supported format: PDF files only</p>
-            <p>🔊 Make sure your speakers are turned on</p>
-            <p>© 2023 All Rights Reserved - Abdullah Mahfouz</p>
+
+        <!-- Status / Feedback -->
+        <div id="status" class="status info" role="status" aria-live="polite"></div>
+
+        <!-- Meta Information -->
+        <div class="meta">
+            <p>Ensure the PDF contains selectable (not scanned) text for best results.</p>
+            <p>Copyright &copy; <span id="year"></span> Abdullah Mahfouz. All rights reserved.</p>
         </div>
-        
-       
-    
     </div>
 
+    <!-- Application Script -->
     <script>
+        // ===== Element References =====
         const uploadForm = document.getElementById('uploadForm');
         const fileInput = document.getElementById('fileInput');
         const uploadArea = document.getElementById('uploadArea');
+        const uploadText = document.getElementById('uploadText');
         const uploadBtn = document.getElementById('uploadBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const resumeBtn = document.getElementById('resumeBtn');
         const stopBtn = document.getElementById('stopBtn');
-        const status = document.getElementById('status');
+        const statusBox = document.getElementById('status');
         const startPageInput = document.getElementById('startPage');
-        const voiceSelect = document.getElementById('voiceSelect');
-        const API_BASE = window.location.origin; // ensure correct base
+        const API_BASE = window.location.origin;
+        document.getElementById('year').textContent = new Date().getFullYear();
 
-        // File upload area interactions
-        uploadArea.addEventListener('click', () => fileInput.click());
-        
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
-        
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
-        
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                fileInput.files = files;
-                updateUploadText(files[0].name);
-            }
-        });
-        
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                updateUploadText(e.target.files[0].name);
-            }
-        });
-        
-        function updateUploadText(filename) {
-            uploadArea.querySelector('.upload-text').textContent = `Selected: ${filename}`;
+        // ===== Utility Functions =====
+        function setStatus(message, type='info') {
+            statusBox.textContent = message;
+            statusBox.className = `status show ${type}`;
         }
-        
-        function showStatus(message, type = 'info') {
-            status.textContent = message;
-            status.className = `status ${type}`;
-            status.classList.remove('hidden');
-        }
-        
-        function hideStatus() {
-            status.classList.add('hidden');
-        }
-        
-        function setLoading(loading) {
-            if (loading) {
-                uploadBtn.innerHTML = '<span class="loading"></span>Processing...';
+        function clearStatus(){ statusBox.className = 'status'; statusBox.textContent=''; }
+        function setLoading(loading){
+            if(loading){
+                uploadBtn.innerHTML = '<span class="loading"></span>Processing';
                 uploadBtn.disabled = true;
             } else {
-                uploadBtn.innerHTML = '🎵 Start Reading';
+                uploadBtn.innerHTML = 'Start Reading';
                 uploadBtn.disabled = false;
             }
         }
-        
-        async function loadVoices(){
-            try {
-                const res = await fetch('/voices');
-                const data = await res.json();
-                voiceSelect.innerHTML='';
-                if(data.voices && data.voices.length){
-                    data.voices.forEach(v=>{
-                        const opt=document.createElement('option');
-                        opt.value=v.id; opt.textContent=v.name || v.id; voiceSelect.appendChild(opt);
-                        if(data.current && data.current===v.id) opt.selected=true;
-                    });
-                } else {
-                    voiceSelect.innerHTML='<option value="">No voices found</option>';
-                }
-            } catch(e){
-                voiceSelect.innerHTML='<option value="">Error loading voices</option>';
+        function updateUploadText(name){ uploadText.textContent = `Selected: ${name}`; }
+
+        // ===== Drag & Drop Handling =====
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+        uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+        uploadArea.addEventListener('drop', e => {
+            e.preventDefault(); uploadArea.classList.remove('dragover');
+            if(e.dataTransfer.files.length){
+                fileInput.files = e.dataTransfer.files;
+                updateUploadText(e.dataTransfer.files[0].name);
             }
-        }
-        loadVoices();
-        
-        // Form submission
-        uploadForm.addEventListener('submit', async (e) => {
+        });
+        fileInput.addEventListener('change', e => { if(e.target.files.length) updateUploadText(e.target.files[0].name); });
+
+        // ===== Form Submission =====
+        uploadForm.addEventListener('submit', async e => {
             e.preventDefault();
-            
-            if (!fileInput.files[0]) {
-                showStatus('Please select a PDF file first!', 'error');
-                return;
-            }
-            
+            if(!fileInput.files[0]) { setStatus('Please select a PDF file.', 'error'); return; }
             const formData = new FormData();
             formData.append('file', fileInput.files[0]);
-            formData.append('start_page', parseInt(startPageInput.value) - 1); // Convert to 0-based
-            if(voiceSelect.value) formData.append('voice_id', voiceSelect.value);
-            
-            setLoading(true);
-            hideStatus();
-            
+            formData.append('start_page', Math.max(0, parseInt(startPageInput.value,10) - 1));
+            setLoading(true); clearStatus();
             try {
-                const response = await fetch(`${API_BASE}/upload`, {
-                    method: 'POST',
-                    body: formData
-                });
-                let resultText = await response.text();
-                let result;
-                try { result = JSON.parse(resultText); } catch { result = { error: `Non-JSON response: ${resultText.slice(0,200)}`}; }
-                if (response.ok) {
-                    showStatus(result.message || 'Started reading', 'success');
-                    stopBtn.classList.remove('hidden');
-                    uploadBtn.classList.add('hidden');
+                const res = await fetch(`${API_BASE}/upload`, { method:'POST', body:formData });
+                const raw = await res.text();
+                let json;
+                try { json = JSON.parse(raw); } catch { json = { error:`Unexpected response: ${raw.slice(0,120)}` }; }
+                if(res.ok){
+                    setStatus(json.message || 'Reading started.', 'success');
+                    pauseBtn.style.display = 'inline-block';
+                    stopBtn.style.display = 'inline-block';
+                    uploadBtn.style.display = 'none';
                 } else {
-                    showStatus(result.error || `Upload failed (status ${response.status})`, 'error');
-                    console.error('Upload error detail:', resultText);
+                    setStatus(json.error || `Upload failed (status ${res.status}).`, 'error');
+                    console.error('Upload error detail:', raw);
                 }
-            } catch (error) {
-                showStatus(`Network error: ${error}`, 'error');
-            } finally {
-                setLoading(false);
+            } catch(err){
+                setStatus(`Network error: ${err}`, 'error');
+            } finally { setLoading(false); }
+        });
+
+        // ===== Pause / Resume Reading =====
+        pauseBtn.addEventListener('click', async () => {
+            try {
+                await fetch(`${API_BASE}/pause`, { method:'POST' });
+                setStatus('Paused', 'info');
+                pauseBtn.style.display = 'none';
+                resumeBtn.style.display = 'inline-block';
+            } catch {
+                setStatus('Pause failed', 'error');
             }
         });
-        
-        // Stop button
+
+        resumeBtn.addEventListener('click', async () => {
+            try {
+                await fetch(`${API_BASE}/resume`, { method:'POST' });
+                setStatus('Resumed', 'info');
+                resumeBtn.style.display = 'none';
+                pauseBtn.style.display = 'inline-block';
+            } catch {
+                setStatus('Resume failed', 'error');
+            }
+        });
+
+        // ===== Stop Reading =====
         stopBtn.addEventListener('click', async () => {
             try {
-                const response = await fetch('/stop', {
-                    method: 'POST'
-                });
-                
-                const result = await response.json();
-                showStatus(result.message, 'info');
-                
-                stopBtn.classList.add('hidden');
-                uploadBtn.classList.remove('hidden');
-            } catch (error) {
-                showStatus('Error stopping playback.', 'error');
+                await fetch(`${API_BASE}/stop`, { method:'POST' });
+                setStatus('Stopped', 'info');
+            } catch {
+                setStatus('Stop failed', 'error');
             }
+            stopBtn.style.display='none';
+            pauseBtn.style.display='none';
+            resumeBtn.style.display='none';
+            uploadBtn.style.display='inline-block';
         });
-        
-        // Check status periodically
+
+        // ===== Poll Reading Status =====
         setInterval(async () => {
             try {
-                const response = await fetch('/status');
-                const result = await response.json();
-                
-                if (!result.is_reading && !stopBtn.classList.contains('hidden')) {
-                    stopBtn.classList.add('hidden');
-                    uploadBtn.classList.remove('hidden');
-                    showStatus('Finished reading the PDF!', 'success');
+                const r = await fetch(`${API_BASE}/status`);
+                const j = await r.json();
+                if(!j.is_reading && stopBtn.style.display !== 'none'){
+                    stopBtn.style.display='none';
+                    pauseBtn.style.display='none';
+                    resumeBtn.style.display='none';
+                    uploadBtn.style.display='inline-block';
+                    setStatus('Finished reading.', 'success');
+                } else {
+                    if(j.paused){
+                        pauseBtn.style.display='none';
+                        resumeBtn.style.display='inline-block';
+                    } else {
+                        resumeBtn.style.display='none';
+                        pauseBtn.style.display='inline-block';
+                    }
                 }
-            } catch (error) {
-                // Ignore errors for status checks
-            }
-        }, 2000);
+            } catch { /* swallow */ }
+        }, 1500);
     </script>
-    
 </body>
 </html>
