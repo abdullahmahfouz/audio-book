@@ -23,7 +23,17 @@ def read_pdf_aloud(pdf_path, start_page=0):
         pdfreader = PyPDF2.PdfReader(pdf_path)
         pages = len(pdfreader.pages)
         
-        speaker = pyttsx3.init()
+        # Initialize TTS engine with error handling
+        try:
+            speaker = pyttsx3.init()
+            # Set properties for better compatibility
+            voices = speaker.getProperty('voices')
+            if voices:
+                speaker.setProperty('voice', voices[0].id)
+            speaker.setProperty('rate', 150)  # Speed of speech
+        except Exception as tts_error:
+            print(f"TTS initialization error: {tts_error}")
+            return
         
         for num in range(start_page, pages):
             if stop_reading:
@@ -33,10 +43,18 @@ def read_pdf_aloud(pdf_path, start_page=0):
             text = page.extract_text()
             
             if text.strip():  # Only read if there's actual text
-                speaker.say(f"Page {num + 1}. {text}")
-                speaker.runAndWait()
+                try:
+                    speaker.say(f"Page {num + 1}. {text}")
+                    speaker.runAndWait()
+                except Exception as speak_error:
+                    print(f"Speech error on page {num + 1}: {speak_error}")
+                    continue
                 
-        speaker.stop()
+        try:
+            speaker.stop()
+        except:
+            pass  # Ignore stop errors
+            
     except Exception as e:
         print(f"Error reading PDF: {e}")
 
@@ -98,6 +116,25 @@ def status():
     global tts_thread
     is_running = tts_thread is not None and tts_thread.is_alive()
     return jsonify({'is_reading': is_running})
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint for deployment platforms"""
+    try:
+        # Test TTS engine
+        import pyttsx3
+        engine = pyttsx3.init()
+        engine.stop()
+        tts_status = "OK"
+    except Exception as e:
+        tts_status = f"Error: {str(e)}"
+    
+    return jsonify({
+        'status': 'healthy',
+        'tts_engine': tts_status,
+        'flask': 'OK',
+        'pdf_reader': 'OK'
+    })
 
 if __name__ == '__main__':
     import os
