@@ -83,11 +83,11 @@
             font-weight: bold;
         }
         
-        .page-input input {
+        .page-input input, .page-input select {
             padding: 10px;
             border: 2px solid #ddd;
             border-radius: 8px;
-            width: 100px;
+            width: 100%;
             text-align: center;
             font-size: 1em;
         }
@@ -188,6 +188,12 @@
                 <label for="startPage">Start from page:</label>
                 <input type="number" id="startPage" name="start_page" value="1" min="1">
             </div>
+            <div class="page-input">
+                <label for="voiceSelect">Voice:</label>
+                <select id="voiceSelect" name="voice_id" style="padding:10px;border:2px solid #ddd;border-radius:8px;">
+                    <option value="">Loading voices...</option>
+                </select>
+            </div>
             
             <button type="submit" class="btn" id="uploadBtn">
                 🎵 Start Reading
@@ -200,9 +206,10 @@
         
         <div id="status" class="status hidden"></div>
         
-        <div style="margin-top: 30px; color: #666; font-size: 0.9em;">
+        <div style="margin-top: 30px; color: #342764; font-size: 0.9em;">
             <p>📝 Supported format: PDF files only</p>
             <p>🔊 Make sure your speakers are turned on</p>
+            <p>© 2023 All Rights Reserved - Abdullah Mahfouz</p>
         </div>
         
        
@@ -217,6 +224,8 @@
         const stopBtn = document.getElementById('stopBtn');
         const status = document.getElementById('status');
         const startPageInput = document.getElementById('startPage');
+        const voiceSelect = document.getElementById('voiceSelect');
+        const API_BASE = window.location.origin; // ensure correct base
 
         // File upload area interactions
         uploadArea.addEventListener('click', () => fileInput.click());
@@ -270,6 +279,26 @@
             }
         }
         
+        async function loadVoices(){
+            try {
+                const res = await fetch('/voices');
+                const data = await res.json();
+                voiceSelect.innerHTML='';
+                if(data.voices && data.voices.length){
+                    data.voices.forEach(v=>{
+                        const opt=document.createElement('option');
+                        opt.value=v.id; opt.textContent=v.name || v.id; voiceSelect.appendChild(opt);
+                        if(data.current && data.current===v.id) opt.selected=true;
+                    });
+                } else {
+                    voiceSelect.innerHTML='<option value="">No voices found</option>';
+                }
+            } catch(e){
+                voiceSelect.innerHTML='<option value="">Error loading voices</option>';
+            }
+        }
+        loadVoices();
+        
         // Form submission
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -282,27 +311,29 @@
             const formData = new FormData();
             formData.append('file', fileInput.files[0]);
             formData.append('start_page', parseInt(startPageInput.value) - 1); // Convert to 0-based
+            if(voiceSelect.value) formData.append('voice_id', voiceSelect.value);
             
             setLoading(true);
             hideStatus();
             
             try {
-                const response = await fetch('/upload', {
+                const response = await fetch(`${API_BASE}/upload`, {
                     method: 'POST',
                     body: formData
                 });
-                
-                const result = await response.json();
-                
+                let resultText = await response.text();
+                let result;
+                try { result = JSON.parse(resultText); } catch { result = { error: `Non-JSON response: ${resultText.slice(0,200)}`}; }
                 if (response.ok) {
-                    showStatus(result.message, 'success');
+                    showStatus(result.message || 'Started reading', 'success');
                     stopBtn.classList.remove('hidden');
                     uploadBtn.classList.add('hidden');
                 } else {
-                    showStatus(result.error, 'error');
+                    showStatus(result.error || `Upload failed (status ${response.status})`, 'error');
+                    console.error('Upload error detail:', resultText);
                 }
             } catch (error) {
-                showStatus('Error uploading file. Please try again.', 'error');
+                showStatus(`Network error: ${error}`, 'error');
             } finally {
                 setLoading(false);
             }
