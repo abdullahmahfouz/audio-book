@@ -16,74 +16,92 @@ app.config['UPLOAD_FOLDER'] = tempfile.gettempdir()
 tts_thread = None
 stop_flag = False
 pause_flag = False
-_engine = None
-_engine_lock = threading.Lock()
+current_page = -1
+current_sentence = ''
+progress_lock = threading.Lock()
 
-# --- Engine setup (single fixed voice) ---
-def get_engine():
-    global _engine
-    with _engine_lock:
-        if _engine is None:
-            # On macOS specify 'nsss' driver for better quality; others auto-detect
-            driver = 'nsss' if os.uname().sysname == 'Darwin' else None
-            _engine = pyttsx3.init(driver)
-            try:
-                voices = _engine.getProperty('voices') or []
-                # pick first English-ish voice
-                def is_en(v):
-                    meta = f"{getattr(v,'id','')} {getattr(v,'name','')} {getattr(v,'languages',[])}".lower()
-                    return 'en' in meta
-                chosen = next((v for v in voices if is_en(v)), voices[0] if voices else None)
-                if chosen:
-                    _engine.setProperty('voice', chosen.id)
-                _engine.setProperty('rate', 165)
-                _engine.setProperty('volume', 1.0)
-            except Exception as e:
-                print(f"Engine configuration error: {e}")
-        return _engine
+# NOTE: Previous shared engine removed because some platforms (macOS nsss) require
+# the engine to be created & used in the same (worker) thread for reliable audio.
+
+# --- Helpers ---
+def pick_english_voice(engine):
+    try:
+        voices = engine.getProperty('voices') or []
+        def is_en(v):
+            meta = f"{getattr(v,'id','')} {getattr(v,'name','')} {getattr(v,'languages',[])}".lower()
+            return 'en' in meta
+        for v in voices:
+            if is_en(v):
+                return v.id
+        return voices[0].id if voices else None
+    except Exception:
+        return None
 
 # --- Reading worker ---
 def read_pdf_aloud(pdf_path, start_page=0):
-    global stop_flag, pause_flag
+    global stop_flag, pause_flag, current_page, current_sentence
     stop_flag = False
     pause_flag = False
+    current_page = -1
+    current_sentence = ''
     try:
         reader = PyPDF2.PdfReader(pdf_path)
         pages = len(reader.pages)
         if start_page < 0 or start_page >= pages:
-            print(f"Start page {start_page} out of range")
+            print(f"[TTS] Start page {start_page} out of range (0..{pages-1})")
             return
-        engine = get_engine()
+
+        # Create engine INSIDE the worker thread
+        driver = 'nsss' if os.uname().sysname == 'Darwin' else None
+        engine = pyttsx3.init(driver)
+        try:
+            v_id = pick_english_voice(engine)
+            if v_id:
+                engine.setProperty('voice', v_id)
+            engine.setProperty('rate', 165)
+            engine.setProperty('volume', 1.0)
+        except Exception as e:
+            print(f"[TTS] Engine config error: {e}")
+
         sentence_pattern = re.compile(r'(?<=[.!?])\s+')
+        print(f"[TTS] Starting reading from page {start_page+1}/{pages}")
         for idx in range(start_page, pages):
             if stop_flag: break
+            current_page = idx
             page = reader.pages[idx]
             try:
                 raw_text = page.extract_text() or ''
             except Exception as ex:
-                print(f"Page {idx+1} extraction error: {ex}")
+                print(f"[TTS] Page {idx+1} extraction error: {ex}")
                 continue
             text = raw_text.strip()
             if not text:
-                print(f"Page {idx+1} empty / non-extractable")
+                print(f"[TTS] Page {idx+1} empty / non-extractable")
                 continue
-            # Split into sentences for responsive pause
             sentences = sentence_pattern.split(text)
             for s in sentences:
                 if stop_flag: break
-                # Handle pause (wait between sentences)
                 while pause_flag and not stop_flag:
                     time.sleep(0.2)
-                if not s.strip():
-                    continue
+                s = s.strip()
+                if not s: continue
+                current_sentence = s[:120]
                 try:
-                    engine.say(s.strip())
-                    engine.runAndWait()  # blocking until sentence finished
+                    engine.say(s)
+                    engine.runAndWait()
                 except Exception as speak_err:
-                    print(f"Speech error: {speak_err}")
+                    print(f"[TTS] Speech error (page {idx+1}): {speak_err}")
                     continue
+        print("[TTS] Finished or stopped.")
     except Exception as e:
-        print(f"Reader error: {e}")
+        print(f"[TTS] Reader error: {e}")
+    finally:
+        try:
+            engine.stop()
+        except Exception:
+            pass
+        current_sentence = ''
+        current_page = -1
 
 # --- Routes ---
 @app.route('/')
@@ -118,7 +136,7 @@ def upload_file():
         tts_thread.start()
         return jsonify({'message': f'Started reading {filename} from page {start_page + 1}'}), 200
     except Exception as e:
-        print(f"Upload error: {e}")
+        print(f"[TTS] Upload error: {e}")
         return jsonify({'error': f'Upload failed: {e}'}), 500
 
 @app.route('/pause', methods=['POST'])
@@ -142,17 +160,19 @@ def stop_route():
 
 @app.route('/status')
 def status():
-    global tts_thread, pause_flag
+    global tts_thread, pause_flag, current_page, current_sentence
     is_running = tts_thread is not None and tts_thread.is_alive()
-    return jsonify({'is_reading': is_running, 'paused': pause_flag})
+    return jsonify({
+        'is_reading': is_running,
+        'paused': pause_flag,
+        'current_page': (current_page + 1) if current_page >= 0 else None,
+        'snippet': current_sentence
+    })
 
 @app.route('/health')
 def health():
-    try:
-        _ = get_engine()
-        return jsonify({'status': 'ok'})
-    except Exception as e:
-        return jsonify({'status': 'error', 'detail': str(e)}), 500
+    # Simple health check (engine init attempt inside worker, so just return ok here)
+    return jsonify({'status': 'ok'})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 3000))
